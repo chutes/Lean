@@ -54,6 +54,12 @@
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="LinearWeightedMovingAverage.cs" />
+    <Compile Include="ParabolicStopAndReverse.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ParabolicStopAndReverseComposite.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="WilliamsPercentR.cs" />
     <Compile Include="AroonOscillator.cs" />
     <Compile Include="AverageTrueRange.cs" />
