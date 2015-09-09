@@ -23,14 +23,16 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QuantConnect.Configuration;
+using QuantConnect.Data;
+using QuantConnect.Data.Market;
+using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
+using QuantConnect.Packets;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Forex;
 using QuantConnect.Util;
 using IB = Krs.Ats.IBNet;
-using QuantConnect.Interfaces;
-using QuantConnect.Data.Market;
 
 namespace QuantConnect.Brokerages.InteractiveBrokers
 {
@@ -509,7 +511,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
                 throw new InvalidOperationException("InteractiveBrokersBrokerage.IBPlaceOrder(): Unable to place order while not connected.");
             }
 
-            var contract = CreateContract(order.Symbol, order.SecurityType, exchange);
+            var contract = CreateContract(order.Symbol.Value, order.SecurityType, exchange);
 
             int ibOrderID = 0;
             if (needsNewID)
@@ -1129,7 +1131,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
 
             return new Holding
             {
-                Symbol = MapSymbol(e.Contract),
+                Symbol = MapSymbol(e.Contract).Value,
                 Type = ConvertSecurityType(e.Contract.SecurityType),
                 Quantity = e.Position,
                 AveragePrice = e.AverageCost,
@@ -1142,14 +1144,14 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// <summary>
         /// Maps the IB Contract's symbol to a QC symbol
         /// </summary>
-        private static string MapSymbol(IB.Contract contract)
+        private static Symbol MapSymbol(IB.Contract contract)
         {
             if (contract.SecurityType == IB.SecurityType.Cash)
             {
                 // reformat for QC
-                return contract.Symbol + contract.Currency;
+                return new Symbol(contract.Symbol + contract.Currency);
             }
-            return contract.Symbol;
+            return new Symbol(contract.Symbol);
         }
 
         /// <summary>
@@ -1210,7 +1212,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// IDataQueueHandler interface implementaion 
         /// </summary>
         /// 
-        public IEnumerable<Data.BaseData> GetNextTicks()
+        public IEnumerable<BaseData> GetNextTicks()
         {
             lock (_ticks)
             {
@@ -1225,7 +1227,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// </summary>
         /// <param name="job">Job we're subscribing for:</param>
         /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-        public void Subscribe(Packets.LiveNodePacket job, IDictionary<SecurityType, List<string>> symbols)
+        public void Subscribe(LiveNodePacket job, IDictionary<SecurityType, List<string>> symbols)
         {
             foreach (var secType in symbols)
                 foreach (var symbol in secType.Value)
@@ -1246,7 +1248,7 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
         /// </summary>
         /// <param name="job">Job we're processing.</param>
         /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
-        public void Unsubscribe(Packets.LiveNodePacket job, IDictionary<SecurityType, List<string>> symbols)
+        public void Unsubscribe(LiveNodePacket job, IDictionary<SecurityType, List<string>> symbols)
         {
             foreach (var secType in symbols)
                 foreach (var symbol in secType.Value)
@@ -1271,7 +1273,9 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
             if (!_subscribedTickets.TryGetValue(e.TickerId, out symbol)) return;
 
             var tick = new Tick();
-            tick.Symbol = symbol.Item2;
+            // in the event of a symbol change this will break since we'll be assigning the
+            // new symbol to the permtick which won't be known by the algorithm
+            tick.Symbol = new Symbol(symbol.Item2);
             tick.Time = GetBrokerTime();
             tick.Value = e.Price;
 
@@ -1339,7 +1343,9 @@ namespace QuantConnect.Brokerages.InteractiveBrokers
             if (!_subscribedTickets.TryGetValue(e.TickerId, out symbol)) return;
 
             var tick = new Tick();
-            tick.Symbol = symbol.Item2;
+            // in the event of a symbol change this will break since we'll be assigning the
+            // new symbol to the permtick which won't be known by the algorithm
+            tick.Symbol = new Symbol(symbol.Item2);
             tick.Quantity = AdjustQuantity(symbol.Item1, e.Size);
             tick.Time = GetBrokerTime();
 
